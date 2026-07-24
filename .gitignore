@@ -1,0 +1,22 @@
+# Data — regenerate by running notebooks/01_initial_data_exploration.ipynb
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# Planning notes — kept local, not published
+docs/
+
+# Notebook cruft
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# macOS
+.DS_Store

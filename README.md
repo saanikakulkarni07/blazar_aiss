@@ -74,7 +74,7 @@ Day 1 data-level check: BL Lac ⟨Γ⟩ = 2.030 ± 0.211, FSRQ ⟨Γ⟩ = 2.469 
 |---|---|---|
 | 1 | Load, audit schema and labels, split, feature selection | ✅ Clean CSVs in `data/processed/` |
 | 2 | EDA scatter + **baseline Random Forest, end to end** | ✅ ROC-AUC 0.958, confusion matrix + ROC in `figures/` |
-| 3 | Stratified 5-fold CV, light tuning, calibration check | ROC-AUC ± σ, reliability curve |
+| 3 | Repeated stratified CV, tuning, calibration check | ✅ AUC 0.946 ± 0.009, isotonic calibration, reliability curve |
 | 4 | SHAP summary + dependence, permutation importance, 2D boundary | The physics-alignment figure |
 | 5 | Predict BCUs, apply confidence threshold | BCU classification breakdown |
 | 6 | Figure polish, slides | Draft deck |
@@ -97,23 +97,49 @@ blazar_aiss/
 ├── figures/          # exported plots
 ├── notebooks/
 │   ├── 01_initial_data_exploration.ipynb
-│   └── 02_baseline_model.ipynb
+│   ├── 02_baseline_model.ipynb
+│   └── 03_cross_validation_and_calibration.ipynb
 └── src/
 ```
 
 ## Results so far
 
-Baseline Random Forest, 20% held-out test set (n = 427):
+### Held-out test set (n = 427)
 
 | Model | Accuracy | FSRQ precision | FSRQ recall | ROC-AUC |
 |---|---:|---:|---:|---:|
 | Always predict BL Lac | 0.646 | 0.000 | 0.000 | 0.500 |
-| Single cut at Γ > 2.2 | 0.862 | 0.745 | 0.927 | 0.945 |
-| **Random Forest** | **0.888** | **0.832** | **0.854** | **0.958** |
+| Cut on Γ alone | 0.862 | 0.745 | 0.927 | 0.945 |
+| Day 2 RF (guessed params) | 0.888 | 0.832 | 0.854 | 0.958 |
+| **Day 3 RF (tuned + isotonic)** | **0.888** | **0.860** | **0.815** | **0.960** |
 
-The forest beats a single hand-drawn spectral-index cut by only **+0.013 AUC**. That is itself
-a result: it says the gamma-ray discriminating power really is concentrated almost entirely in
-spectral slope, as blazar emission theory predicts.
+### Cross-validated, 50 folds (the number to quote)
+
+| Ranker | ROC-AUC |
+|---|---:|
+| Random Forest, 4 features | **0.946 ± 0.009** |
+| `PL_Index` (Γ) alone | 0.930 ± 0.010 |
+| **paired difference** | **+0.016 ± 0.007**, positive in **50/50 folds** |
+
+Day 2's single-split 0.958 was optimistic by ~1.3σ. The forest's margin over spectral index
+alone is small but its sign never flipped across 50 folds — the three non-spectral features carry
+a real, modest signal, worth **+0.053 average precision**. Most of the gamma-ray discriminating
+power really is concentrated in spectral slope, as blazar emission theory predicts.
+
+Note on the baseline: ROC-AUC is threshold-independent, so "a cut at Γ > 2.2" and "Γ used alone
+as a ranking score" have the *same* AUC. The threshold only affects precision and recall.
+
+### Tuning and calibration
+
+Grid search over `max_depth` × `min_samples_leaf` moved CV AUC by **+0.003** — inside the
+fold-to-fold scatter of 0.013, so Day 2's guessed hyperparameters were already fine. The search
+did prefer shallower trees (depth 4, not 8), consistent with a genuinely simple decision surface.
+
+Calibration mattered more. As `class_weight="balanced"` implies, the raw forest over-stated
+`P(FSRQ)` (mean 0.388 vs a true rate of 0.354). Isotonic regression corrected it —
+Brier **0.078 → 0.074**; Platt scaling made it slightly worse. Thresholding the calibrated
+probabilities at `P ≥ 0.90` (or `≤ 0.10`) retains **72%** of test sources at **97.7%** accuracy,
+which sets the confidence/coverage trade-off Day 5 inherits.
 
 ## Setup
 

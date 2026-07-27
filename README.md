@@ -1,6 +1,6 @@
-# Blazar AISS — Classifying Fermi-LAT Blazar Candidates of Uncertain Type
+# Classifying Fermi-LAT Blazar Candidates of Uncertain Type
 
-AI-for-Science Summer School capstone. 7-day sprint.
+Capstone project for the AI for Summer School. 
 
 ## Background
 
@@ -69,7 +69,7 @@ Day 1 data-level check: BL Lac ⟨Γ⟩ = 2.030 ± 0.211, FSRQ ⟨Γ⟩ = 2.469 
 | **Distribution shift** | BCUs are fainter and messier than the training set; sources below the confidence threshold stay labelled "unknown" |
 | **Misreading feature importance** | `Pivot_Energy` is ρ = −0.86 with Γ, so SHAP and permutation importance both over-credit it. Confirm every importance claim with a retrain-without-it ablation |
 
-## 7-day plan
+## 5-day plan
 
 | Day | Work | Deliverable |
 |---|---|---|
@@ -78,8 +78,7 @@ Day 1 data-level check: BL Lac ⟨Γ⟩ = 2.030 ± 0.211, FSRQ ⟨Γ⟩ = 2.469 
 | 3 | Repeated stratified CV, tuning, calibration check | ✅ AUC 0.946 ± 0.009, isotonic calibration, reliability curve |
 | 4 | SHAP, permutation importance, ablation, 2D boundary | ✅ All 6 pre-registered claims hold; LBL mechanism identified |
 | 5 | Predict BCUs, apply confidence threshold | BCU classification breakdown |
-| 6 | Figure polish, slides | Draft deck |
-| 7 | Buffer, rehearsal | — |
+
 
 **Day 2 is the milestone that matters.** Once an end-to-end model exists, every later day is
 optional improvement.

@@ -20,3 +20,7 @@ venv/
 
 # macOS
 .DS_Store
+
+# JupyterLab LSP scratch files
+.virtual_documents/
+**/.virtual_documents/

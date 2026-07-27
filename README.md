@@ -67,6 +67,7 @@ Day 1 data-level check: BL Lac ⟨Γ⟩ = 2.030 ± 0.211, FSRQ ⟨Γ⟩ = 2.469 
 | **Overfitting** | Limit `max_depth` / `min_samples_leaf`; validate with stratified 5-fold CV |
 | **Overconfidence on BCUs** | Random Forest probabilities are poorly calibrated by default — check a reliability curve before applying any confidence threshold |
 | **Distribution shift** | BCUs are fainter and messier than the training set; sources below the confidence threshold stay labelled "unknown" |
+| **Misreading feature importance** | `Pivot_Energy` is ρ = −0.86 with Γ, so SHAP and permutation importance both over-credit it. Confirm every importance claim with a retrain-without-it ablation |
 
 ## 7-day plan
 
@@ -75,7 +76,7 @@ Day 1 data-level check: BL Lac ⟨Γ⟩ = 2.030 ± 0.211, FSRQ ⟨Γ⟩ = 2.469 
 | 1 | Load, audit schema and labels, split, feature selection | ✅ Clean CSVs in `data/processed/` |
 | 2 | EDA scatter + **baseline Random Forest, end to end** | ✅ ROC-AUC 0.958, confusion matrix + ROC in `figures/` |
 | 3 | Repeated stratified CV, tuning, calibration check | ✅ AUC 0.946 ± 0.009, isotonic calibration, reliability curve |
-| 4 | SHAP summary + dependence, permutation importance, 2D boundary | The physics-alignment figure |
+| 4 | SHAP, permutation importance, ablation, 2D boundary | ✅ All 6 pre-registered claims hold; LBL mechanism identified |
 | 5 | Predict BCUs, apply confidence threshold | BCU classification breakdown |
 | 6 | Figure polish, slides | Draft deck |
 | 7 | Buffer, rehearsal | — |
@@ -98,7 +99,8 @@ blazar_aiss/
 ├── notebooks/
 │   ├── 01_initial_data_exploration.ipynb
 │   ├── 02_baseline_model.ipynb
-│   └── 03_cross_validation_and_calibration.ipynb
+│   ├── 03_cross_validation_and_calibration.ipynb
+│   └── 04_interpretability_and_physics.ipynb
 └── src/
 ```
 
@@ -140,6 +142,33 @@ Calibration mattered more. As `class_weight="balanced"` implies, the raw forest 
 Brier **0.078 → 0.074**; Platt scaling made it slightly worse. Thresholding the calibrated
 probabilities at `P ≥ 0.90` (or `≤ 0.10`) retains **72%** of test sources at **97.7%** accuracy,
 which sets the confidence/coverage trade-off Day 5 inherits.
+
+### Physics alignment (Day 4 — the answer to the research question)
+
+All six pre-registered claims from Day 1 hold. The learned decision boundary sits at
+median **Γ = 2.251** against a prediction of 2.2, made before any model was trained.
+
+**The forest's advantage over a spectral cut has a name.** Of the 24 test sources it rescues from
+a Γ > 2.2 rule, **24 are BL Lacs and none are FSRQs**. They sit at high Γ (2.25) with anomalously
+low variability — *low-peaked BL Lacs*, whose soft spectra mimic FSRQs but which stay quiet
+because, lacking a broad-line region, they have no external-Compton cooling to drive fast
+variability. The learned boundary tilts by **+0.078 in Γ** in exactly the direction this predicts:
+a quiet source must look measurably softer before the model will call it an FSRQ.
+
+| Feature set | CV ROC-AUC |
+|---|---:|
+| Γ alone | 0.9293 |
+| Γ + variability | 0.9480 |
+| all four features | 0.9504 |
+
+Variability supplies ~90% of everything gained over spectral index alone.
+
+**Methodological caution worth reporting.** `Pivot_Energy` receives the second-largest SHAP
+attribution *and* is the cheapest feature to delete (ablation cost 0.0029, the lowest of the
+four). It is ρ = −0.86 correlated with Γ because the pivot energy is a byproduct of the same
+spectral fit — so attribution methods hand it credit that belongs to Γ. Reporting the SHAP
+ranking alone would have produced a confident and wrong physical claim. **Attribution measures
+credit; only ablation measures unique information.**
 
 ## Setup
 

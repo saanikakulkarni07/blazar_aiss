@@ -73,7 +73,7 @@ Day 1 data-level check: BL Lac ⟨Γ⟩ = 2.030 ± 0.211, FSRQ ⟨Γ⟩ = 2.469 
 | Day | Work | Deliverable |
 |---|---|---|
 | 1 | Load, audit schema and labels, split, feature selection | ✅ Clean CSVs in `data/processed/` |
-| 2 | EDA scatter + **baseline Random Forest, end to end** | Confusion matrix, ROC curve |
+| 2 | EDA scatter + **baseline Random Forest, end to end** | ✅ ROC-AUC 0.958, confusion matrix + ROC in `figures/` |
 | 3 | Stratified 5-fold CV, light tuning, calibration check | ROC-AUC ± σ, reliability curve |
 | 4 | SHAP summary + dependence, permutation importance, 2D boundary | The physics-alignment figure |
 | 5 | Predict BCUs, apply confidence threshold | BCU classification breakdown |
@@ -96,9 +96,24 @@ blazar_aiss/
 ├── docs/             # planning notes (local only, not tracked)
 ├── figures/          # exported plots
 ├── notebooks/
-│   └── 01_initial_data_exploration.ipynb
+│   ├── 01_initial_data_exploration.ipynb
+│   └── 02_baseline_model.ipynb
 └── src/
 ```
+
+## Results so far
+
+Baseline Random Forest, 20% held-out test set (n = 427):
+
+| Model | Accuracy | FSRQ precision | FSRQ recall | ROC-AUC |
+|---|---:|---:|---:|---:|
+| Always predict BL Lac | 0.646 | 0.000 | 0.000 | 0.500 |
+| Single cut at Γ > 2.2 | 0.862 | 0.745 | 0.927 | 0.945 |
+| **Random Forest** | **0.888** | **0.832** | **0.854** | **0.958** |
+
+The forest beats a single hand-drawn spectral-index cut by only **+0.013 AUC**. That is itself
+a result: it says the gamma-ray discriminating power really is concentrated almost entirely in
+spectral slope, as blazar emission theory predicts.
 
 ## Setup
 

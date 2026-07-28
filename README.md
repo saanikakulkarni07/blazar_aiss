@@ -1,6 +1,6 @@
 # Classifying Fermi-LAT Blazar Candidates of Uncertain Type
 
-Capstone project for the AI for Summer School. 
+Capstone project for the AI for Science Summer School.
 
 ## Background
 

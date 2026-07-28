@@ -76,7 +76,7 @@ Day 1 data-level check: BL Lac ⟨Γ⟩ = 2.030 ± 0.211, FSRQ ⟨Γ⟩ = 2.469 
 | 1 | Load, audit schema and labels, split, feature selection | ✅ Clean CSVs in `data/processed/` |
 | 2 | EDA scatter + **baseline Random Forest, end to end** | ✅ ROC-AUC 0.958, confusion matrix + ROC in `figures/` |
 | 3 | Repeated stratified CV, tuning, calibration check | ✅ AUC 0.946 ± 0.009, isotonic calibration, reliability curve |
-| 4 | SHAP, permutation importance, ablation, 2D boundary | ✅ All 6 pre-registered claims hold; LBL mechanism identified |
+| 4 | SHAP, ablation, 2D boundary, noise-ceiling analysis | ✅ All 6 pre-registered claims hold; LBL mechanism identified; problem shown to be photon-limited |
 | 5 | Predict BCUs, apply confidence threshold | BCU classification breakdown |
 
 
@@ -161,6 +161,23 @@ a quiet source must look measurably softer before the model will call it an FSRQ
 | all four features | 0.9504 |
 
 Variability supplies ~90% of everything gained over spectral index alone.
+
+**The problem is photon-limited, not algorithm-limited.** Using `Unc_PL_Index` as a diagnostic
+(never as a feature — the leakage rule stands), ~75% of each class's spread in Γ is intrinsic
+astrophysical diversity, so the class overlap is real. But the remaining ~25% is measurement
+noise, and removing it is worth more than any modelling we did:
+
+| Source of improvement | AUC gain |
+|---|---:|
+| Random Forest over Γ alone | +0.016 |
+| all three extra features | +0.021 |
+| **perfect measurement of Γ** | **+0.023** |
+
+The residual ambiguity splits roughly half and half: **51%** of low-confidence sources sit within
+1σ of the boundary (measurement-limited), while **31%** are firmly measured yet still ambiguous —
+and most of those sit where the training data's own class mixture is genuinely intermediate. Not
+a defect; the blazar sequence is a continuum. Matched on flux, ambiguous and confident sources
+have the same Γ uncertainty (ratio 1.06), so they are not badly observed — just awkwardly placed.
 
 **Methodological caution worth reporting.** `Pivot_Energy` receives the second-largest SHAP
 attribution *and* is the cheapest feature to delete (ablation cost 0.0029, the lowest of the

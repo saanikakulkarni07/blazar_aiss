@@ -66,7 +66,7 @@ Day 1 data-level check: BL Lac ⟨Γ⟩ = 2.030 ± 0.211, FSRQ ⟨Γ⟩ = 2.469 
 | **Optical-derived features** | Drop `Redshift`, `nu_syn`, `SED_class` — a BCU by definition lacks these, so training on them yields a model that cannot be applied |
 | **Overfitting** | Limit `max_depth` / `min_samples_leaf`; validate with stratified 5-fold CV |
 | **Overconfidence on BCUs** | Random Forest probabilities are poorly calibrated by default — check a reliability curve before applying any confidence threshold |
-| **Distribution shift** | BCUs are fainter and messier than the training set; sources below the confidence threshold stay labelled "unknown" |
+| **Distribution shift** | BCUs are fainter and messier than the training set; sources below the confidence threshold stay labelled "unknown". Measured with a domain classifier (AUC 0.739) and priced by re-running the evaluation on a flux-matched labelled sample before predicting anything |
 | **Misreading feature importance** | `Pivot_Energy` is ρ = −0.86 with Γ, so SHAP and permutation importance both over-credit it. Confirm every importance claim with a retrain-without-it ablation |
 
 ## 5-day plan
@@ -77,7 +77,7 @@ Day 1 data-level check: BL Lac ⟨Γ⟩ = 2.030 ± 0.211, FSRQ ⟨Γ⟩ = 2.469 
 | 2 | EDA scatter + **baseline Random Forest, end to end** | ✅ ROC-AUC 0.958, confusion matrix + ROC in `figures/` |
 | 3 | Repeated stratified CV, tuning, calibration check | ✅ AUC 0.946 ± 0.009, isotonic calibration, reliability curve |
 | 4 | SHAP, ablation, 2D boundary, noise-ceiling analysis | ✅ All 6 pre-registered claims hold; LBL mechanism identified; problem shown to be photon-limited |
-| 5 | Predict BCUs, apply confidence threshold | BCU classification breakdown |
+| 5 | Distribution-shift gate, transfer test, predict BCUs | ✅ 603 of 1,208 classified; forest's margin over Γ shown not to transfer |
 
 
 **Day 2 is the milestone that matters.** Once an end-to-end model exists, every later day is
@@ -99,7 +99,8 @@ blazar_aiss/
 │   ├── 01_initial_data_exploration.ipynb
 │   ├── 02_baseline_model.ipynb
 │   ├── 03_cross_validation_and_calibration.ipynb
-│   └── 04_interpretability_and_physics.ipynb
+│   ├── 04_interpretability_and_physics.ipynb
+│   └── 05_bcu_classification.ipynb
 └── src/
 ```
 
@@ -185,6 +186,72 @@ four). It is ρ = −0.86 correlated with Γ because the pivot energy is a bypro
 spectral fit — so attribution methods hand it credit that belongs to Γ. Reporting the SHAP
 ranking alone would have produced a confident and wrong physical claim. **Attribution measures
 credit; only ablation measures unique information.**
+
+### The BCUs (Day 5 — the other half of the research question)
+
+Three predictions were registered before any BCU was scored. All three held.
+
+**The model's advantage does not transfer to the population it was built for.** A domain
+classifier separates BCUs from labelled blazars at AUC 0.739, driven by flux (0.699 alone) — BCUs
+are unclassified *because* they are faint. Resampling the labelled set to the BCU flux
+distribution (rejection sampling, no duplicates) and re-measuring:
+
+| Population | RF | Γ alone | margin |
+|---|---:|---:|---:|
+| full labelled sample (n = 2,134) | 0.9460 | 0.9298 | **+0.0163** |
+| random subsample (n ≈ 991) — control | 0.9465 | 0.9337 | +0.0128 |
+| **flux-matched to the BCUs** (n ≈ 991) | 0.9311 | 0.9295 | **+0.0016 ± 0.0022** |
+
+The margin does not shrink, it vanishes. The control rules out sample size. Note *which* number
+moved: Γ alone is untouched (0.9298 → 0.9295) because spectral shape degrades gracefully, while
+the forest falls, because all three features it adds are flux-sensitive — Variability_Index most
+of all, since a χ²-like statistic loses power with photon count. The Day 4 mechanism is real
+*and* fragile: on a faint blazar everything looks quiet, and non-detection of variability is not
+evidence of steadiness.
+
+**Three estimates of the BCU FSRQ fraction, and they disagree informatively:**
+
+| Estimate | FSRQ fraction | Uses |
+|---|---:|---|
+| training prior | 0.354 | nothing about the BCUs |
+| model's mean P(FSRQ) | 0.374 | all four features |
+| EM on the score distribution | 0.394 | features + score spread |
+| moment matching on Γ, flux-corrected | **0.444** | Γ only |
+| moment matching on Γ, naive | 0.520 | Γ only, biased reference means |
+
+Correcting the class reference means for flux drops the moment estimate 0.520 → 0.444: within the
+FSRQ class ρ(log Flux, Γ) = −0.41, so faint FSRQs are softer and comparing BCUs against
+bright-FSRQ means inflates the answer. The model's 0.374 sits *below* the Γ-only estimate, in
+exactly the direction suppressed variability predicts — it under-calls FSRQs.
+
+### Result
+
+| | Labelled set | Flux-matched rehearsal | BCUs |
+|---|---:|---:|---:|
+| coverage at `P ≥ 0.90 / ≤ 0.10` | 70.6% | 67.8% | **49.9%** |
+| accuracy within coverage | 96.6% | 96.6% | — |
+
+**603 of 1,208 BCUs classified — 418 BL Lacs, 185 FSRQs — at an expected 96.6% accuracy within
+the confident set, measured on a rehearsal rather than assumed. The remaining 605 are declared
+uncertain.** Accuracy holds while coverage falls: when the evidence degrades the model does not
+become confidently wrong, it abstains. That is the calibration from Day 3 earning its place, and
+it is the part of this model worth defending — not its margin over a spectral cut.
+
+Predictions in `data/processed/bcu_predictions.csv`.
+
+### The claim, stated honestly
+
+> A model can be right about the physics and still not transfer. Ours learned the correct
+> boundary, for the correct reason, and then met a population where the evidence it relies on
+> stops being measurable — so it says so, and abstains on half of them.
+
+The Day 4 LBL mechanism *replicates in direction* on the BCUs: the forest disagrees with a Γ > 2.2
+cut 349 times, always pulling soft sources back to BL Lac. That asymmetry is not an artifact — on
+the labelled set the same comparison gives 283:3, and 67.5% of those 283 really are BL Lacs. But
+it cannot be **confirmed**: as flux falls, mean Γ falls, variability falls, and P(FSRQ) falls
+together, and two explanations — genuine selection toward hard-spectrum sources at the faint end,
+versus the variability artifact — predict identical trends in every column. Separating them needs
+a flux-independent variability measure, or optical spectra.
 
 ## Setup
 

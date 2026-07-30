@@ -38,6 +38,14 @@ spectroscopy needed to sort them into BL Lac or FSRQ.
 Four gamma-ray features, each measurable for a BCU: `PL_Index` (photon index Γ),
 `Variability_Index`, `Flux1000`, `Pivot_Energy`.
 
+<p align="center">
+  <img src="figures/eda_gamma_vs_variability.png" width="540"
+       alt="BL Lacs and FSRQs in photon index vs variability index">
+</p>
+
+<p align="center"><sub><b>The problem, before any modelling.</b> The two classes separate almost
+entirely along spectral slope — but they overlap, and the overlap is where the BCUs live.</sub></p>
+
 ## Approach
 
 Feature engineering to isolate leakage-free physical measurements, a Random Forest classifier
@@ -148,6 +156,13 @@ which sets the confidence/coverage trade-off Day 5 inherits.
 All six pre-registered claims from Day 1 hold. The learned decision boundary sits at
 median **Γ = 2.251** against a prediction of 2.2, made before any model was trained.
 
+![Learned decision boundary against the pre-registered Γ = 2.2](figures/day4_decision_boundary.png)
+
+<sub><b>The learned decision surface vs the boundary predicted before training.</b> Colour is
+P(FSRQ); the solid line is the model's own 0.5 contour, the dashed line the pre-registered
+Γ = 2.2. The surface is near-vertical — nearly all the discriminating power is spectral slope —
+but it <i>tilts</i>: at low variability the contour moves to higher Γ by +0.078.</sub>
+
 **The forest's advantage over a spectral cut has a name.** Of the 24 test sources it rescues from
 a Γ > 2.2 rule, **24 are BL Lacs and none are FSRQs**. They sit at high Γ (2.25) with anomalously
 low variability — *low-peaked BL Lacs*, whose soft spectra mimic FSRQs but which stay quiet
@@ -174,6 +189,12 @@ noise, and removing it is worth more than any modelling we did:
 | all three extra features | +0.021 |
 | **perfect measurement of Γ** | **+0.023** |
 
+![Noise ceiling: perfect measurement of Γ outperforms the model](figures/day4_noise_ceiling.png)
+
+<sub><b>What a better measurement is worth against what a better model is worth.</b> Removing the
+measurement noise in Γ buys more AUC than the entire four-feature forest does over a spectral
+cut.</sub>
+
 The residual ambiguity splits roughly half and half: **51%** of low-confidence sources sit within
 1σ of the boundary (measurement-limited), while **31%** are firmly measured yet still ambiguous —
 and most of those sit where the training data's own class mixture is genuinely intermediate. Not
@@ -186,6 +207,14 @@ four). It is ρ = −0.86 correlated with Γ because the pivot energy is a bypro
 spectral fit — so attribution methods hand it credit that belongs to Γ. Reporting the SHAP
 ranking alone would have produced a confident and wrong physical claim. **Attribution measures
 credit; only ablation measures unique information.**
+
+![SHAP vs permutation vs ablation importance](figures/day4_importance_comparison.png)
+
+<sub><b>Three importance methods, three different stories.</b> Left: SHAP, permutation importance
+and retrain-without-it ablation, each normalised to its own largest value — they agree on Γ and
+disagree sharply on <code>Pivot_Energy</code>. Right: credit received (SHAP) against information
+supplied (AUC lost on removal). <code>Pivot_Energy</code> sits far off the diagonal: large
+attribution, negligible necessity.</sub>
 
 ### The BCUs (Day 5 — the other half of the research question)
 
@@ -209,6 +238,14 @@ of all, since a χ²-like statistic loses power with photon count. The Day 4 mec
 *and* fragile: on a faint blazar everything looks quiet, and non-detection of variability is not
 evidence of steadiness.
 
+![Transfer test: the forest's margin vanishes on a flux-matched sample](figures/day5_transfer_test.png)
+
+<sub><b>The central negative result.</b> Left: cross-validated AUC for the forest and for Γ alone,
+on the full labelled sample, on a random subsample of the same size as the flux-matched draw, and
+on the flux-matched draw itself. Right: the paired margin across resampling draws — on a sample as
+faint as the BCUs it straddles zero, while the size-matched control stays near the full-sample
+value.</sub>
+
 **Three estimates of the BCU FSRQ fraction, and they disagree informatively:**
 
 | Estimate | FSRQ fraction | Uses |
@@ -230,6 +267,13 @@ exactly the direction suppressed variability predicts — it under-calls FSRQs.
 |---|---:|---:|---:|
 | coverage at `P ≥ 0.90 / ≤ 0.10` | 70.6% | 67.8% | **49.9%** |
 | accuracy within coverage | 96.6% | 96.6% | — |
+
+![BCU score distribution and the resulting classification split](figures/day5_bcu_predictions.png)
+
+<sub><b>The deliverable, and the cost of honesty.</b> Left: calibrated score distribution for the
+BCUs against the out-of-fold labelled blazars — the BCUs are visibly depleted in the confident
+tails and piled up in the shaded abstention zone. Right: the resulting split. Half the target
+population is declined rather than guessed.</sub>
 
 **603 of 1,208 BCUs classified — 418 BL Lacs, 185 FSRQs — at an expected 96.6% accuracy within
 the confident set, measured on a rehearsal rather than assumed. The remaining 605 are declared
@@ -261,3 +305,35 @@ jupyter lab notebooks/01_initial_data_exploration.ipynb
 ```
 
 Notebook 01 downloads the catalog automatically on first run.
+
+## Reproducing the figures
+
+`figures/` is committed, but `data/raw/` and `data/processed/` are gitignored — so on a fresh
+clone there is nothing to regenerate the plots *from*. **Run the notebooks in order, 01 → 05,
+top to bottom.** The order is not cosmetic: notebook 03 writes `day3_model_config.json`, which
+04 and 05 both load, and 04 writes `day4_interpretability.json`, which 05 loads. Starting at 04
+on a clean clone raises `FileNotFoundError`.
+
+Every notebook seeds `RANDOM_STATE = 42`, so a full re-run reproduces the numbers quoted above
+exactly, not just approximately.
+
+| Notebook | Writes to `data/processed/` | Figures produced |
+|---|---|---|
+| 01 initial data exploration | `known_blazars.csv`, `bcu_candidates.csv` | *(none — data prep only)* |
+| 02 baseline model | `baseline_test_predictions.csv` | `eda_gamma_vs_variability`, `eda_pairplot`, `baseline_confusion_matrix`, `baseline_roc_curve` |
+| 03 cross-validation and calibration | `day3_model_config.json`, `day3_cv_folds.csv`, `day3_grid_search.csv`, `day3_model_comparison.csv` | `cv_auc_distribution`, `tuning_heatmap`, `calibration_curve` |
+| 04 interpretability and physics | `day4_interpretability.json`, `day4_ablation.csv`, `day4_shap_profile.csv` | `day4_decision_boundary`, `day4_importance_comparison`, `day4_lbl_mechanism`, `day4_noise_ceiling`, `day4_shap_summary`, `day4_feature_correlation` |
+| 05 BCU classification | `bcu_predictions.csv`, `day5_bcu_summary.json` | `day5_transfer_test`, `day5_bcu_predictions`, `day5_distribution_shift`, `day5_bcu_map` |
+
+Only notebook 02 is skippable — nothing downstream reads its outputs, and its four figures are
+the exploratory ones. All PNGs are written at `dpi=150` with `bbox_inches="tight"`.
+
+**The five figures that carry the argument**, if you only want those:
+
+| Figure | Notebook | What it shows |
+|---|---|---|
+| `day4_decision_boundary.png` | 04 | Learned boundary at Γ = 2.251 vs the pre-registered 2.2, and the +0.078 tilt |
+| `day4_importance_comparison.png` | 04 | SHAP vs permutation vs ablation — the `Pivot_Energy` attribution failure |
+| `day4_noise_ceiling.png` | 04 | Perfect Γ (+0.023) beats the whole model (+0.016) — photon-limited, not algorithm-limited |
+| `day5_transfer_test.png` | 05 | The margin vanishing on a flux-matched sample: +0.0163 → +0.0016 |
+| `day5_bcu_predictions.png` | 05 | 418 / 185 / 605-uncertain, and the BCUs piling up in the abstention zone |
